@@ -1,5 +1,6 @@
 #include "operators.h"
-
+#include <iostream>
+#include <thread>
 #include <cassert>
 
 // Get materialized results
@@ -109,12 +110,31 @@ void Join::copy2Result(uint64_t left_id, uint64_t right_id) {
   ++result_size_;
 }
 
+void threadFunction(int i){
+  std::cerr << "thread " << i << " is running" << std::endl;
+};
+
+void Join::runThingLeft(){
+  left_->require(p_info_.left);
+  left_->run();
+}
+
 // Run
 void Join::run() {
-  left_->require(p_info_.left);
+
+
+
+// right_->run();
+  // left_->run();
+
+  std::thread tLeft([this]() -> void{runThingLeft();});
+  // left_->require(p_info_.left);
+  // left_->run();
   right_->require(p_info_.right);
-  left_->run();
   right_->run();
+  // std::thread tRight(right_->run());
+  tLeft.join();
+  // tRight.join();
 
 
   // Use smaller input_ for build
@@ -124,6 +144,7 @@ void Join::run() {
     std::swap(requested_columns_left_, requested_columns_right_);
   }
 
+  // left is always the smaller one
   auto left_input_data = left_->getResults();
   auto right_input_data = right_->getResults();
 
@@ -141,9 +162,22 @@ void Join::run() {
   auto left_col_id = left_->resolve(p_info_.left);
   auto right_col_id = right_->resolve(p_info_.right);
 
+  // std::thread t1(threadFunction,1);
+  // std::thread t2(threadFunction,2);
+  // std::thread t3(threadFunction,3);
+  // std::thread t4(threadFunction,4);
+  // std::thread t5(threadFunction,5);
+  // std::thread t6(threadFunction,6);
+  // t1.join();
+  // t2.join();
+  // t3.join();
+  // t4.join();
+  // t5.join();
+  // t6.join();
+
   // Build phase
   auto left_key_column = left_input_data[left_col_id];
-  hash_table_.reserve(left_->result_size() * 2);
+  hash_table_.reserve(left_->result_size() * 2); // WHY is this times 2?
   for (uint64_t i = 0, limit = i + left_->result_size(); i != limit; ++i) {
     hash_table_.emplace(left_key_column[i], i);
   }

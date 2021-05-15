@@ -129,6 +129,8 @@ class Join : public Operator {
   /// The input data that has to be copied
   std::vector<uint64_t *> copy_left_data_, copy_right_data_;
 
+  void runThingLeft();
+
  private:
   /// Copy tuple to result
   void copy2Result(uint64_t left_id, uint64_t right_id);
