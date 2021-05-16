@@ -1,6 +1,7 @@
 #include "operators.h"
 
 #include <cassert>
+#include <thread>
 
 // Get materialized results
 std::vector<uint64_t *> Operator::getResults() {
@@ -109,12 +110,20 @@ void Join::copy2Result(uint64_t left_id, uint64_t right_id) {
   ++result_size_;
 }
 
+void Join::runThingLeft(){
+  left_->require(p_info_.left);
+  left_->run();
+}
+
 // Run
 void Join::run() {
-  left_->require(p_info_.left);
+  std::thread tLeft([this]() -> void{runThingLeft();});
+  // left_->require(p_info_.left);
+  // left_->run();
   right_->require(p_info_.right);
-  left_->run();
   right_->run();
+  // std::thread tRight(right_->run());
+  tLeft.join();
 
 
   // Use smaller input_ for build
@@ -126,7 +135,6 @@ void Join::run() {
 
   auto left_input_data = left_->getResults();
   auto right_input_data = right_->getResults();
-
   // Resolve the input_ columns_
   unsigned res_col_id = 0;
   for (auto &info : requested_columns_left_) {
@@ -148,13 +156,38 @@ void Join::run() {
     hash_table_.emplace(left_key_column[i], i);
   }
   // Probe phase
+
+
+  // std::cerr << limit << std:endl;
   auto right_key_column = right_input_data[right_col_id];
-  for (uint64_t i = 0, limit = i + right_->result_size(); i != limit; ++i) {
-    auto rightKey = right_key_column[i];
-    auto range = hash_table_.equal_range(rightKey);
-    for (auto iter = range.first; iter != range.second; ++iter) {
-      copy2Result(iter->second, i);
-    }
+  unsigned numchunks = 2;
+  unsigned chunksize = (left_->result_size())/numchunks;
+  // std::thread t1([this, right_key_column]() -> void{
+  //     for (uint64_t i = 0, limit = (i + right_->result_size())/2; i != limit; ++i) {
+  //       auto rightKey = right_key_column[i];
+  //       auto range = hash_table_.equal_range(rightKey);
+  //       for (auto iter = range.first; iter != range.second; ++iter) {
+  //         copy2Result(iter->second, i);
+  //       }
+  // }
+  //   });
+
+  // for (uint64_t i = right_->result_size()/2, limit = right_->result_size(); i != limit; ++i) {
+  //       auto rightKey = right_key_column[i];
+  //       auto range = hash_table_.equal_range(rightKey);
+  //       for (auto iter = range.first; iter != range.second; ++iter) {
+  //         copy2Result(iter->second, i);
+  //       }
+  // }
+  // t1.join();
+  for (uint64_t i = 0, limit = (i + right_->result_size()); i != limit; ++i) {
+        auto rightKey = right_key_column[i];
+          std::cerr << limit << std::endl;
+
+        auto range = hash_table_.equal_range(rightKey);
+        for (auto iter = range.first; iter != range.second; ++iter) {
+          copy2Result(iter->second, i);
+        }
   }
 }
 

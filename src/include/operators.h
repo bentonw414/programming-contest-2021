@@ -145,6 +145,9 @@ class Join : public Operator {
   bool require(SelectInfo info) override;
   /// Run
   void run() override;
+
+
+  void runThingLeft();
 };
 
 class SelfJoin : public Operator {
